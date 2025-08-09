@@ -1,6 +1,7 @@
 package com.example.b3.service;
 
 import com.example.b3.model.StockView;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -8,6 +9,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class ScreenerService {
+  private static final org.slf4j.Logger log = LoggerFactory.getLogger(ScreenerService.class);
 
   public enum Method { GRAHAM, PE_TARGET, EV_EBITDA_TARGET }
 
@@ -16,10 +18,15 @@ public class ScreenerService {
   public ScreenerService(BrapiClient brapi) { this.brapi = brapi; }
 
   public List<StockView> run(int howMany, Method method, Double peTarget, Double evEbitdaTarget) {
+    log.info("start run");
+    log.info("run pre listTopByMarketCap");
     var universe = brapi.listTopByMarketCap();
+    log.info("run pos listTopByMarketCap");
     var tickers = universe.stream().map(BrapiClient.QuoteListItem::stock).toList();
 
+    log.info("run pre getQuotesWithModules");
     List<Map<String,Object>> raw = brapi.getQuotesWithModules(tickers);
+    log.info("run pos getQuotesWithModules");
     List<StockView> out = new ArrayList<>();
 
     for (var m : raw) {

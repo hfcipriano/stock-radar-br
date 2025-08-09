@@ -205,3 +205,16 @@ thead th.is-visible{
   animation: colFlash 900ms ease-out;
 }
 
+
+/* Apenas aplica sticky no desktop */
+@media (min-width: 768px) {
+  th.sticky-col, td.sticky-col {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 3;
+  }
+  th.sticky-col.name, td.sticky-col.name {
+    left: 120px; /* ou sua var --sticky1 */
+  }
+}

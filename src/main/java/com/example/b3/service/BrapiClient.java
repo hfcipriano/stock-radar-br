@@ -1,5 +1,7 @@
 package com.example.b3.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpHeaders;
@@ -15,6 +17,7 @@ import java.util.*;
 @Service
 public class BrapiClient {
 
+  private static final Logger log = LoggerFactory.getLogger(BrapiClient.class);
   private final RestClient http;
   private final String baseUrl;
   private final String token;
@@ -40,7 +43,8 @@ public class BrapiClient {
 
   @Cacheable(cacheNames = "tickers_top", unless = "#result == null")
   public List<QuoteListItem> listTopByMarketCap() {
-    String url = baseUrl + "/quote/list?type=stock&sortBy=market_cap_basic&sortOrder=desc&limit=" + 200 + "&page=1";
+    //log.info("start listTopByMarketCap");
+    String url = baseUrl + "/quote/list?type=stock&sortBy=market_cap_basic&sortOrder=desc&limit=" + 300 + "&page=1";
     var resp = withAuth(http.get().uri(url)).retrieve().body(QuoteListResponse.class);
     if (resp == null || resp.stocks() == null) return List.of();
     List<QuoteListItem> out = new ArrayList<>();
@@ -50,24 +54,36 @@ public class BrapiClient {
         (String) s.getOrDefault("name","")
       ));
     }
+    //log.info("finish listTopByMarketCap");
     return out;
   }
 
   @Cacheable(cacheNames = "quotes_batch", unless = "#result == null")
   public List<Map<String,Object>> getQuotesWithModules(List<String> tickers) {
+    //log.info("start getQuotesWithModules");
     if (tickers == null || tickers.isEmpty()) return List.of();
-    List<Map<String,Object>> all = new ArrayList<>();
-    final int MAX = 10;
+    final int MAX = 20;
     // Use only available modules (no summaryDetail)
     final String modules = "financialData,defaultKeyStatistics,incomeStatementHistory,balanceSheetHistory,financialDataHistory,cashflowHistory";
-    for (int i=0; i<tickers.size(); i+=MAX) {
-      var slice = tickers.subList(i, Math.min(i+MAX, tickers.size()));
-      String joined = String.join(",", slice);
-      String url = baseUrl + "/quote/" + joined + "?fundamental=true&dividends=false&modules=" + modules;
-      var resp = withAuth(http.get().uri(url)).retrieve().body(QuoteResponse.class);
-      if (resp != null && resp.results() != null) all.addAll(resp.results());
+
+    // Build chunks and fetch in parallel
+    List<String> chunks = new ArrayList<>();
+    for (int i = 0; i < tickers.size(); i += MAX) {
+      var slice = tickers.subList(i, Math.min(i + MAX, tickers.size()));
+      chunks.add(String.join(",", slice));
     }
-    return all;
+
+    List<Map<String,Object>> results = chunks.parallelStream()
+      .map(joined -> {
+        log.info("start chunck " + joined);
+        String url = baseUrl + "/quote/" + joined + "?fundamental=true&dividends=false&modules=" + modules;
+        var resp = withAuth(http.get().uri(url)).retrieve().body(QuoteResponse.class);
+        return (resp != null && resp.results() != null) ? resp.results() : Collections.<Map<String,Object>>emptyList();
+      })
+      .flatMap(List::stream)
+      .toList();
+
+    return results;
   }
 
   @SuppressWarnings("unchecked")
