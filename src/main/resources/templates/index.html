@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stock Radar BR</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<header>
+  <h1>Stock Radar BR</h1>
+  <p>Dados ao vivo via <a href="https://brapi.dev" target="_blank" rel="noreferrer">brapi.dev</a>. Ordenado por <em>Margin of Safety</em>.</p>
+</header>
+
+<main>
+  <form method="get" class="controls">
+    <label>Quantidade:
+      <input type="number" name="limit" min="1" max="100" th:value="${limit}" />
+    </label>
+    <button type="submit">Atualizar</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Empresa</th>
+          <th>Preço (R$)</th>
+          <th>EPS (LPA)</th>
+          <th>VPA</th>
+          <th>Graham #</th>
+          <th>Valor Intrínseco</th>
+          <th>Margin of Safety</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="s: ${stocks}">
+          <td><strong th:text="${s.ticker}"></strong></td>
+          <td th:text="${s.name}"></td>
+          <td th:text="${#numbers.formatDecimal(s.price, 1, 2)}"></td>
+          <td th:text="${#numbers.formatDecimal(s.eps, 1, 2)}"></td>
+          <td th:text="${#numbers.formatDecimal(s.bvps, 1, 2)}"></td>
+          <td th:text="${#numbers.formatDecimal(s.grahamNumber, 1, 2)}"></td>
+          <td th:text="${#numbers.formatDecimal(s.intrinsic, 1, 2)}"></td>
+          <td><span class="badge" th:text="${#numbers.formatPercent(s.marginOfSafety, 1, 2)}"></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="hint">* Heurística de Graham Number. Use para triagem inicial — não é recomendação.</p>
+  </div>
+</main>
+
+<footer>
+  <p>Spring Boot + Thymeleaf + brapi.dev</p>
+</footer>
+</body>
+</html>
