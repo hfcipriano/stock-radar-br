@@ -4,7 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Stock Radar BR — Pro</title>
+</head>
   <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* Esconde todas as colunas dinâmicas por padrão; o JS exibe as selecionadas */
+    [data-col] { display: none; }
+  </style>
+</head>
 </head>
 <body>
 <header class="app-header container">
@@ -114,23 +120,23 @@
           <td class="sticky-col"><span class="ticker" th:text="${s.ticker}"></span></td>
           <td class="sticky-col name" th:text="${s.name}"></td>
           <td data-col="price" th:text="${#numbers.formatDecimal(s.price,1,2)}"></td>
-          <td data-col="eps" th:text="${s.eps}"></td>
-          <td data-col="bvps" th:text="${s.bvps}"></td>
-          <td data-col="pe" th:text="${s.pe}"></td>
-          <td data-col="pb" th:text="${s.pb}"></td>
-          <td data-col="marketCap" th:text="${s.marketCap}"></td>
-          <td data-col="sharesOutstanding" th:text="${s.sharesOutstanding}"></td>
-          <td data-col="totalDebt" th:text="${s.totalDebt}"></td>
-          <td data-col="cash" th:text="${s.cash}"></td>
-          <td data-col="ebitda" th:text="${s.ebitda}"></td>
-          <td data-col="equity" th:text="${s.equity}"></td>
-          <td data-col="netIncome" th:text="${s.netIncome}"></td>
-          <td data-col="revenue" th:text="${s.revenue}"></td>
-          <td data-col="ev" th:text="${s.ev}"></td>
-          <td data-col="evEbitda" th:text="${s.evEbitda}"></td>
-          <td data-col="netMargin" th:text="${s.netMargin}"></td>
-          <td data-col="roe" th:text="${s.roe}"></td>
-          <td data-col="intrinsic" th:text="${s.intrinsic}"></td>
+          <td data-col="eps" th:text="${#numbers.formatDecimal(s.eps,1,2)}"></td>
+          <td data-col="bvps" th:text="${#numbers.formatDecimal(s.bvps,1,2)}"></td>
+          <td data-col="pe" th:text="${#numbers.formatDecimal(s.pe,1,2)}"></td>
+          <td data-col="pb" th:text="${#numbers.formatDecimal(s.pb,1,2)}"></td>
+          <td data-col="marketCap" th:text="${#numbers.formatDecimal(s.marketCap,1,2)}"></td>
+          <td data-col="sharesOutstanding" th:text="${#numbers.formatDecimal(s.sharesOutstanding,1,2)}"></td>
+          <td data-col="totalDebt" th:text="${#numbers.formatDecimal(s.totalDebt,1,2)}"></td>
+          <td data-col="cash" th:text="${#numbers.formatDecimal(s.cash,1,2)}"></td>
+          <td data-col="ebitda" th:text="${#numbers.formatDecimal(s.ebitda,1,2)}"></td>
+          <td data-col="equity" th:text="${#numbers.formatDecimal(s.equity,1,2)}"></td>
+          <td data-col="netIncome" th:text="${#numbers.formatDecimal(s.netIncome,1,2)}"></td>
+          <td data-col="revenue" th:text="${#numbers.formatDecimal(s.revenue,1,2)}"></td>
+          <td data-col="ev" th:text="${#numbers.formatDecimal(s.ev,1,2)}"></td>
+          <td data-col="evEbitda" th:text="${#numbers.formatDecimal(s.evEbitda,1,2)}"></td>
+          <td data-col="netMargin" th:text="${#numbers.formatPercent(s.netMargin,1,2)}"></td>
+          <td data-col="roe" th:text="${#numbers.formatPercent(s.roe,1,2)}"></td>
+          <td data-col="intrinsic" th:text="${#numbers.formatDecimal(s.intrinsic,1,2)}"></td>
           <td data-col="marginOfSafety">
             <span class="badge"
                   th:classappend="${s.marginOfSafety != null and s.marginOfSafety >= 0} ? ' badge-pos' : ' badge-neg'"
@@ -147,5 +153,34 @@
 <footer class="container app-footer">
   <p>Feito com Spring Boot + Thymeleaf • Dados brapi.dev</p>
 </footer>
+<script>
+(function(){
+  const colsField = document.getElementById('columnsField');
+  const checks = document.querySelectorAll('.cols-grid input[type=checkbox]');
+
+  function applyColumnsVisibility(){
+    const active = new Set(Array.from(checks).filter(c => c.checked).map(c => c.dataset.col));
+    if (colsField) colsField.value = Array.from(active).join(',');
+
+    document.querySelectorAll('[data-col]').forEach(el => {
+      const show = active.has(el.getAttribute('data-col'));
+      const isCell = el.tagName === 'TD' || el.tagName === 'TH';
+      el.style.display = show ? (isCell ? 'table-cell' : '') : 'none';
+    });
+  }
+
+  // Se houver preset vindo do backend (query ?columns=...)
+  if (colsField && colsField.value) {
+    const preset = colsField.value.split(',').map(s => s.trim()).filter(Boolean);
+    checks.forEach(ch => ch.checked = preset.includes(ch.dataset.col));
+  }
+
+  // Aplica imediatamente ao carregar
+  window.addEventListener('DOMContentLoaded', applyColumnsVisibility);
+
+  // Reaplica ao marcar/desmarcar
+  checks.forEach(ch => ch.addEventListener('change', applyColumnsVisibility));
+})();
+</script>
 </body>
 </html>
