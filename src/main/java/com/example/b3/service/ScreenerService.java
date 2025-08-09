@@ -16,7 +16,7 @@ public class ScreenerService {
   public ScreenerService(BrapiClient brapi) { this.brapi = brapi; }
 
   public List<StockView> run(int howMany, Method method, Double peTarget, Double evEbitdaTarget) {
-    var universe = brapi.listTopByMarketCap(Math.max(howMany * 2, 60));
+    var universe = brapi.listTopByMarketCap();
     var tickers = universe.stream().map(BrapiClient.QuoteListItem::stock).toList();
 
     List<Map<String,Object>> raw = brapi.getQuotesWithModules(tickers);
@@ -43,6 +43,15 @@ public class ScreenerService {
       Double evEbitda = (Double) n.get("evEbitda");
       Double netMargin = (Double) n.get("netMargin");
       Double roe = (Double) n.get("roe");
+
+      // ---- fallbacks: compute derived fields if absent ----
+      final double EPS = 1e-9;
+      if (netMargin == null && revenue != null && Math.abs(revenue) > EPS && netIncome != null) {
+        netMargin = (netIncome / revenue) * 100.0;
+      }
+      if (roe == null && equity != null && Math.abs(equity) > EPS && netIncome != null) {
+        roe = (netIncome / equity) * 100.0;
+      }
 
       if (price == null || price <= 0) continue;
 

@@ -10,8 +10,6 @@
     /* Esconde todas as colunas dinâmicas por padrão; o JS exibe as selecionadas */
     [data-col] { display: none; }
   </style>
-</head>
-</head>
 <body>
 <header class="app-header container">
   <div class="brand">
@@ -41,12 +39,12 @@
         </select>
       </div>
 
-      <div class="field w-sm">
+      <div class="field w-sm" id="peTargetWrap">
         <label for="peTarget">P/E alvo</label>
         <input id="peTarget" name="peTarget" type="number" step="0.1" min="1" max="40" placeholder="12" th:value="${peTarget}">
       </div>
 
-      <div class="field w-sm">
+      <div class="field w-sm" id="evTargetWrap">
         <label for="evTarget">EV/EBITDA alvo</label>
         <input id="evTarget" name="evTarget" type="number" step="0.1" min="1" max="20" placeholder="6" th:value="${evTarget}">
       </div>
@@ -60,6 +58,10 @@
       <summary class="cols-summary">
         <span class="icon">▦</span> Colunas visíveis
       </summary>
+      <div class="cols-actions" style="display:flex; gap:8px; margin:10px 0 2px;">
+        <button type="button" class="btn" id="btnAllColumns">Marcar todas</button>
+        <button type="button" class="btn" id="btnDefaultColumns">Padrão</button>
+      </div>
       <div class="cols-grid">
         <!-- marque/desmarque e seu JS já atualiza columnsField + data-col -->
         <label class="chip"><input type="checkbox" data-col="price" checked>Preço</label>
@@ -119,15 +121,15 @@
         <tr th:each="s: ${stocks}">
           <td class="sticky-col"><span class="ticker" th:text="${s.ticker}"></span></td>
           <td class="sticky-col name" th:text="${s.name}"></td>
-          <td data-col="price" th:text="${#numbers.formatDecimal(s.price,1,2)}"></td>
+          <td data-col="price" data-money th:attr="data-val=${s.price}" th:text="${s.price}"></td>
           <td data-col="eps" th:text="${#numbers.formatDecimal(s.eps,1,2)}"></td>
           <td data-col="bvps" th:text="${#numbers.formatDecimal(s.bvps,1,2)}"></td>
           <td data-col="pe" th:text="${#numbers.formatDecimal(s.pe,1,2)}"></td>
           <td data-col="pb" th:text="${#numbers.formatDecimal(s.pb,1,2)}"></td>
-          <td data-col="marketCap" th:text="${#numbers.formatDecimal(s.marketCap,1,2)}"></td>
+          <td data-col="marketCap" data-money th:attr="data-val=${s.marketCap}" th:text="${s.marketCap}"></td>
           <td data-col="sharesOutstanding" th:text="${#numbers.formatDecimal(s.sharesOutstanding,1,2)}"></td>
-          <td data-col="totalDebt" th:text="${#numbers.formatDecimal(s.totalDebt,1,2)}"></td>
-          <td data-col="cash" th:text="${#numbers.formatDecimal(s.cash,1,2)}"></td>
+          <td data-col="totalDebt" data-money th:attr="data-val=${s.totalDebt}" th:text="${s.totalDebt}"></td>
+          <td data-col="cash" data-money th:attr="data-val=${s.cash}" th:text="${s.cash}"></td>
           <td data-col="ebitda" th:text="${#numbers.formatDecimal(s.ebitda,1,2)}"></td>
           <td data-col="equity" th:text="${#numbers.formatDecimal(s.equity,1,2)}"></td>
           <td data-col="netIncome" th:text="${#numbers.formatDecimal(s.netIncome,1,2)}"></td>
@@ -136,7 +138,7 @@
           <td data-col="evEbitda" th:text="${#numbers.formatDecimal(s.evEbitda,1,2)}"></td>
           <td data-col="netMargin" th:text="${#numbers.formatPercent(s.netMargin,1,2)}"></td>
           <td data-col="roe" th:text="${#numbers.formatPercent(s.roe,1,2)}"></td>
-          <td data-col="intrinsic" th:text="${#numbers.formatDecimal(s.intrinsic,1,2)}"></td>
+          <td data-col="intrinsic" data-money th:attr="data-val=${s.intrinsic}" th:text="${s.intrinsic}"></td>
           <td data-col="marginOfSafety">
             <span class="badge"
                   th:classappend="${s.marginOfSafety != null and s.marginOfSafety >= 0} ? ' badge-pos' : ' badge-neg'"
@@ -155,8 +157,32 @@
 </footer>
 <script>
 (function(){
+  const methodSel = document.getElementById('method');
+  const peWrap = document.getElementById('peTargetWrap');
+  const evWrap = document.getElementById('evTargetWrap');
+
+  function syncMethodVisibility() {
+    const m = methodSel ? methodSel.value : 'GRAHAM';
+    if (peWrap) peWrap.style.display = (m === 'PE_TARGET') ? 'inline-flex' : 'none';
+    if (evWrap) evWrap.style.display = (m === 'EV_EBITDA_TARGET') ? 'inline-flex' : 'none';
+  }
+
   const colsField = document.getElementById('columnsField');
   const checks = document.querySelectorAll('.cols-grid input[type=checkbox]');
+  const btnAll = document.getElementById('btnAllColumns');
+  const btnDefault = document.getElementById('btnDefaultColumns');
+  const DEFAULT_COLS = ['price','eps','bvps','intrinsic','marginOfSafety'];
+
+  function isDefaultSelection(activeSet){
+    if (!activeSet || activeSet.size !== DEFAULT_COLS.length) return false;
+    return DEFAULT_COLS.every(c => activeSet.has(c));
+  }
+  function updatePresetButton(activeSet){
+    if (!btnDefault) return;
+    const on = isDefaultSelection(activeSet);
+    btnDefault.classList.toggle('is-on', on);
+    btnDefault.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
 
   function applyColumnsVisibility(){
     const active = new Set(Array.from(checks).filter(c => c.checked).map(c => c.dataset.col));
@@ -167,8 +193,30 @@
       const isCell = el.tagName === 'TD' || el.tagName === 'TH';
       el.style.display = show ? (isCell ? 'table-cell' : '') : 'none';
     });
+    formatMoneyCells();
+    updatePresetButton(active);
   }
 
+  const moneyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 2 });
+  function formatMoneyCells(){
+    document.querySelectorAll('td[data-money]').forEach(td => {
+      const raw = td.getAttribute('data-val') ?? td.textContent;
+      const val = Number(raw);
+      if (!isNaN(val)) {
+        td.textContent = moneyFormatter.format(val);
+      }
+    });
+  }
+
+  if (btnAll) btnAll.addEventListener('click', () => {
+    checks.forEach(ch => ch.checked = true);
+    applyColumnsVisibility();
+  });
+  if (btnDefault) btnDefault.addEventListener('click', () => {
+    const set = new Set(DEFAULT_COLS);
+    checks.forEach(ch => ch.checked = set.has(ch.dataset.col));
+    applyColumnsVisibility();
+  });
   // Se houver preset vindo do backend (query ?columns=...)
   if (colsField && colsField.value) {
     const preset = colsField.value.split(',').map(s => s.trim()).filter(Boolean);
@@ -177,9 +225,16 @@
 
   // Aplica imediatamente ao carregar
   window.addEventListener('DOMContentLoaded', applyColumnsVisibility);
+  window.addEventListener('DOMContentLoaded', syncMethodVisibility);
+  window.addEventListener('DOMContentLoaded', formatMoneyCells);
+  window.addEventListener('DOMContentLoaded', () => {
+    const active = new Set(Array.from(checks).filter(c => c.checked).map(c => c.dataset.col));
+    updatePresetButton(active);
+  });
 
   // Reaplica ao marcar/desmarcar
   checks.forEach(ch => ch.addEventListener('change', applyColumnsVisibility));
+  if (methodSel) methodSel.addEventListener('change', syncMethodVisibility);
 })();
 </script>
 </body>
