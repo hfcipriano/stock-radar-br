@@ -1,4 +1,4 @@
-package com.example.b3;
+package com.henriquecipriano.b3;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

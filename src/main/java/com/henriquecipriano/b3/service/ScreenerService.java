@@ -1,6 +1,6 @@
-package com.example.b3.service;
+package com.henriquecipriano.b3.service;
 
-import com.example.b3.model.StockView;
+import com.henriquecipriano.b3.model.StockView;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 

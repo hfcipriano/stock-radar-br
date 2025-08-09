@@ -1,4 +1,4 @@
-package com.example.b3.service;
+package com.henriquecipriano.b3.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

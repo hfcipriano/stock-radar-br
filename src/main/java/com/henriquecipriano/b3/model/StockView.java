@@ -1,4 +1,4 @@
-package com.example.b3.model;
+package com.henriquecipriano.b3.model;
 
 public record StockView(
     String ticker,

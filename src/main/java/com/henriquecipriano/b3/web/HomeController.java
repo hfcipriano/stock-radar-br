@@ -1,7 +1,7 @@
-package com.example.b3.web;
+package com.henriquecipriano.b3.web;
 
-import com.example.b3.service.ScreenerService;
-import com.example.b3.service.ScreenerService.Method;
+import com.henriquecipriano.b3.service.ScreenerService;
+import com.henriquecipriano.b3.service.ScreenerService.Method;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;

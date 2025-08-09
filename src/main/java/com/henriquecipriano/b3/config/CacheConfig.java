@@ -1,4 +1,4 @@
-package com.example.b3.config;
+package com.henriquecipriano.b3.config;
 
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCache;
