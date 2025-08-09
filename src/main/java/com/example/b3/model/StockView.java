@@ -4,9 +4,23 @@ public record StockView(
     String ticker,
     String name,
     double price,
-    double eps,
-    double bvps,
-    double grahamNumber,
-    double intrinsic,
-    double marginOfSafety
+    Double eps,
+    Double bvps,
+    Double pe,
+    Double pb,
+    Double marketCap,
+    Double sharesOutstanding,
+    Double totalDebt,
+    Double cash,
+    Double ebitda,
+    Double equity,
+    Double netIncome,
+    Double revenue,
+    Double ev,
+    Double evEbitda,
+    Double netMargin,
+    Double roe,
+    // valuation outputs
+    Double intrinsic,
+    Double marginOfSafety
 ) {}

@@ -4,12 +4,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Minimal brapi.dev client focused on quotes + fundamentals needed for Graham.
@@ -37,12 +34,11 @@ public class BrapiClient {
     return spec;
   }
 
-  public static record QuoteListItem(String stock, String name, Double close, Double volume, String sector, String type) {}
   public static record QuoteListResponse(List<Map<String,Object>> indexes, List<Map<String,Object>> stocks) {}
-
+  public static record QuoteListItem(String stock, String name) {}
   public static record QuoteResponse(List<Map<String,Object>> results) {}
 
-  @Cacheable(cacheNames = "tickers_top", unless = "#result == null", cacheManager = "simpleCacheManager")
+  @Cacheable(cacheNames = "tickers_top", unless = "#result == null")
   public List<QuoteListItem> listTopByMarketCap(int limit) {
     String url = baseUrl + "/quote/list?type=stock&sortBy=market_cap_basic&sortOrder=desc&limit=" + limit + "&page=1";
     var resp = withAuth(http.get().uri(url)).retrieve().body(QuoteListResponse.class);
@@ -50,12 +46,8 @@ public class BrapiClient {
     List<QuoteListItem> out = new ArrayList<>();
     for (var s : resp.stocks()) {
       out.add(new QuoteListItem(
-          (String) s.getOrDefault("stock",""),
-          (String) s.getOrDefault("name",""),
-          s.get("close") instanceof Number ? ((Number) s.get("close")).doubleValue() : null,
-          s.get("volume") instanceof Number ? ((Number) s.get("volume")).doubleValue() : null,
-          (String) s.getOrDefault("sector",""),
-          (String) s.getOrDefault("type","")
+        (String) s.getOrDefault("stock",""),
+        (String) s.getOrDefault("name","")
       ));
     }
     return out;
@@ -65,64 +57,112 @@ public class BrapiClient {
   public List<Map<String,Object>> getQuotesWithModules(List<String> tickers) {
     if (tickers == null || tickers.isEmpty()) return List.of();
     List<Map<String,Object>> all = new ArrayList<>();
-    final int MAX = 10; // limite por requisição no plano atual
-    for (int i = 0; i < tickers.size(); i += MAX) {
-      List<String> slice = tickers.subList(i, Math.min(i + MAX, tickers.size()));
+    final int MAX = 10;
+    // Use only available modules (no summaryDetail)
+    final String modules = "financialData,defaultKeyStatistics,incomeStatementHistory,balanceSheetHistory,financialDataHistory,cashflowHistory";
+    for (int i=0; i<tickers.size(); i+=MAX) {
+      var slice = tickers.subList(i, Math.min(i+MAX, tickers.size()));
       String joined = String.join(",", slice);
-      String url = baseUrl + "/quote/" + joined + "?fundamental=true&dividends=false&modules=defaultKeyStatistics";
+      String url = baseUrl + "/quote/" + joined + "?fundamental=true&dividends=false&modules=" + modules;
       var resp = withAuth(http.get().uri(url)).retrieve().body(QuoteResponse.class);
-      if (resp != null && resp.results() != null) {
-        all.addAll(resp.results());
-      }
+      if (resp != null && resp.results() != null) all.addAll(resp.results());
     }
     return all;
   }
 
-  public static class GrahamFields {
-    public String ticker;
-    public String name;
-    public double price;
-    public Double eps;   // earningsPerShare (LPA)
-    public Double bvps;  // bookValue per share (VPA)
-    public Double pe;    // priceEarnings
-    public Double pb;    // priceToBook
-  }
-
-  /**
-   * Map the raw result into GrahamFields using a few fallbacks.
-   */
-  public GrahamFields toGrahamFields(Map<String,Object> m) {
-    GrahamFields g = new GrahamFields();
-    g.ticker = (String) m.getOrDefault("symbol","");
-    g.name = (String) m.getOrDefault("shortName", m.getOrDefault("longName", g.ticker));
-    g.price = num(m, "regularMarketPrice", num(m, "close", 0d));
-    g.eps = n(m, "earningsPerShare");
-    g.pb  = n(m, "priceToBook");
-    g.pe  = n(m, "priceEarnings");
-
-    // Try to find bookValue in top-level or inside defaultKeyStatistics
-    g.bvps = n(m, "bookValue");
-    if (g.bvps == null) {
-      Object dks = m.get("defaultKeyStatistics");
-      if (dks instanceof Map<?,?> dk) {
-        Object val = ((Map<?,?>) dk).get("bookValue");
-        if (val instanceof Number v) g.bvps = v.doubleValue();
-      }
-    }
-    // If still missing BVPS but we have PB and price, compute: BVPS = price / PB
-    if (g.bvps == null && g.pb != null && g.pb > 0) {
-      g.bvps = g.price / g.pb;
-    }
-    return g;
-  }
-
-  private Double n(Map<String,Object> m, String key) {
-    Object v = m.get(key);
-    if (v instanceof Number n) return n.doubleValue();
+  @SuppressWarnings("unchecked")
+  private static Map<String,Object> sub(Map<String,Object> m, String key) {
+    Object s = m.get(key);
+    if (s instanceof Map<?,?> sm) return (Map<String,Object>) sm;
     return null;
   }
-  private double num(Map<String,Object> m, String key, double def) {
-    Double d = n(m, key);
-    return d == null ? def : d;
+  @SuppressWarnings("unchecked")
+  private static List<Map<String,Object>> arr(Map<String,Object> m, String key) {
+    Object s = m.get(key);
+    if (s instanceof List<?> l) return (List<Map<String,Object>>) l;
+    return null;
+  }
+  private static Double num(Object v) { return v instanceof Number n ? n.doubleValue() : null; }
+
+  public Map<String,Object> normalize(Map<String,Object> m) {
+    Map<String,Object> out = new HashMap<>();
+    // basics
+    out.put("symbol", m.getOrDefault("symbol",""));
+    out.put("name", m.getOrDefault("shortName", m.getOrDefault("longName", "")));
+
+    // price
+    Double price = num(m.get("regularMarketPrice"));
+    if (price == null) price = num(m.get("close"));
+    var priceMap = sub(m,"price");
+    if (price == null && priceMap != null) price = num(priceMap.get("regularMarketPrice"));
+    out.put("price", price);
+
+    // defaultKeyStatistics
+    var dks = sub(m,"defaultKeyStatistics");
+    Double eps = num(m.get("earningsPerShare"));
+    if (eps == null && dks != null) eps = num(dks.get("earningsPerShare"));
+    out.put("eps", eps);
+    Double bookValue = num(m.get("bookValue"));
+    if (bookValue == null && dks != null) bookValue = num(dks.get("bookValue"));
+    out.put("bvps", bookValue);
+    Double pe = num(m.get("priceEarnings"));
+    if (pe == null && dks != null) pe = num(dks.get("priceEarnings"));
+    out.put("pe", pe);
+    Double pb = num(m.get("priceToBook"));
+    if (pb == null && dks != null) pb = num(dks.get("priceToBook"));
+    out.put("pb", pb);
+    Double shares = dks != null ? num(dks.get("sharesOutstanding")) : null;
+    out.put("sharesOutstanding", shares);
+
+    // financialData (may include ebitda, totalDebt, cash)
+    var fin = sub(m,"financialData");
+    if (fin != null) {
+      out.put("ebitda", num(fin.get("ebitda")));
+      out.put("totalDebt", num(fin.get("totalDebt")));
+      out.put("cash", num(fin.get("totalCash")));
+    }
+
+    // balanceSheetHistory
+    var bsh = sub(m,"balanceSheetHistory");
+    var bshArr = bsh == null ? null : (List<Map<String,Object>>) bsh.get("balanceSheetStatements");
+    if (bshArr != null && !bshArr.isEmpty()) {
+      var last = bshArr.get(0);
+      if (!out.containsKey("totalDebt") || out.get("totalDebt") == null) out.put("totalDebt", num(last.get("totalDebt")));
+      if (!out.containsKey("cash") || out.get("cash") == null) out.put("cash", num(last.get("cash")));
+      out.put("equity", num(last.get("totalStockholderEquity")));
+    }
+
+    // incomeStatementHistory
+    var ish = sub(m,"incomeStatementHistory");
+    var ishArr = ish == null ? null : (List<Map<String,Object>>) ish.get("incomeStatementHistory");
+    if (ishArr != null && !ishArr.isEmpty()) {
+      var last = ishArr.get(0);
+      out.put("revenue", num(last.get("totalRevenue")));
+      out.put("netIncome", num(last.get("netIncome")));
+      if (!out.containsKey("ebitda") || out.get("ebitda") == null) out.put("ebitda", num(last.get("ebitda")));
+    }
+
+    // derived
+    Double p = (Double) out.get("price");
+    Double sh = (Double) out.get("sharesOutstanding");
+    Double mcap = (p != null && sh != null) ? p * sh : null;
+    out.put("marketCap", mcap);
+    Double debt = (Double) out.get("totalDebt");
+    Double cash = (Double) out.get("cash");
+    Double ev = (mcap != null ? mcap : 0d) + (debt != null ? debt : 0d) - (cash != null ? cash : 0d);
+    out.put("ev", ev);
+    Double ebitda = (Double) out.get("ebitda");
+    out.put("evEbitda", (ebitda != null && ebitda != 0) ? ev / ebitda : null);
+    Double revenue = (Double) out.get("revenue");
+    Double ni = (Double) out.get("netIncome");
+    out.put("netMargin", (revenue != null && revenue != 0 && ni != null) ? (ni / revenue) * 100.0 : null);
+    Double eq = (Double) out.get("equity");
+    out.put("roe", (eq != null && eq != 0 && ni != null) ? (ni / eq) * 100.0 : null);
+
+    // Fallback BVPS using PB if needed
+    if (out.get("bvps") == null && pb != null && pb > 0 && p != null) {
+      out.put("bvps", p / pb);
+    }
+    return out;
   }
 }

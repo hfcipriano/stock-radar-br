@@ -1,58 +1,151 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stock Radar BR</title>
+  <title>Stock Radar BR — Pro</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-<header>
-  <h1>Stock Radar BR</h1>
-  <p>Dados ao vivo via <a href="https://brapi.dev" target="_blank" rel="noreferrer">brapi.dev</a>. Ordenado por <em>Margin of Safety</em>.</p>
+<header class="app-header container">
+  <div class="brand">
+    <div class="logo">SR</div>
+    <div class="titles">
+      <h1>Stock Radar BR</h1>
+      <p>Triagem dinâmica de ações da B3 com cálculo de valor intrínseco.</p>
+    </div>
+  </div>
 </header>
 
-<main>
-  <form method="get" class="controls">
-    <label>Quantidade:
-      <input type="number" name="limit" min="1" max="100" th:value="${limit}" />
-    </label>
-    <button type="submit">Atualizar</button>
+<main class="container">
+  <!-- Toolbar -->
+  <form id="controls" method="get" class="toolbar card">
+    <div class="toolbar-row">
+      <div class="field">
+        <label for="limit">Quantidade</label>
+        <input id="limit" name="limit" type="number" min="1" max="100" th:value="${limit}">
+      </div>
+
+      <div class="field">
+        <label for="method">Método de Avaliação</label>
+        <select id="method" name="method" th:value="${method}">
+          <option value="GRAHAM" th:selected="${method}=='GRAHAM'">Graham (padrão)</option>
+          <option value="PE_TARGET" th:selected="${method}=='PE_TARGET'">P/E alvo</option>
+          <option value="EV_EBITDA_TARGET" th:selected="${method}=='EV_EBITDA_TARGET'">EV/EBITDA alvo</option>
+        </select>
+      </div>
+
+      <div class="field w-sm">
+        <label for="peTarget">P/E alvo</label>
+        <input id="peTarget" name="peTarget" type="number" step="0.1" min="1" max="40" placeholder="12" th:value="${peTarget}">
+      </div>
+
+      <div class="field w-sm">
+        <label for="evTarget">EV/EBITDA alvo</label>
+        <input id="evTarget" name="evTarget" type="number" step="0.1" min="1" max="20" placeholder="6" th:value="${evTarget}">
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" type="submit">Aplicar</button>
+      </div>
+    </div>
+
+    <details class="cols details-reset">
+      <summary class="cols-summary">
+        <span class="icon">▦</span> Colunas visíveis
+      </summary>
+      <div class="cols-grid">
+        <!-- marque/desmarque e seu JS já atualiza columnsField + data-col -->
+        <label class="chip"><input type="checkbox" data-col="price" checked>Preço</label>
+        <label class="chip"><input type="checkbox" data-col="eps" checked>EPS</label>
+        <label class="chip"><input type="checkbox" data-col="bvps" checked>VPA</label>
+        <label class="chip"><input type="checkbox" data-col="pe">P/L</label>
+        <label class="chip"><input type="checkbox" data-col="pb">P/VP</label>
+        <label class="chip"><input type="checkbox" data-col="marketCap">Market Cap</label>
+        <label class="chip"><input type="checkbox" data-col="sharesOutstanding">Ações</label>
+        <label class="chip"><input type="checkbox" data-col="totalDebt">Dívida</label>
+        <label class="chip"><input type="checkbox" data-col="cash">Caixa</label>
+        <label class="chip"><input type="checkbox" data-col="ebitda">EBITDA</label>
+        <label class="chip"><input type="checkbox" data-col="equity">Patrimônio</label>
+        <label class="chip"><input type="checkbox" data-col="netIncome">Lucro</label>
+        <label class="chip"><input type="checkbox" data-col="revenue">Receita</label>
+        <label class="chip"><input type="checkbox" data-col="ev">EV</label>
+        <label class="chip"><input type="checkbox" data-col="evEbitda">EV/EBITDA</label>
+        <label class="chip"><input type="checkbox" data-col="netMargin">Marg. Líq.%</label>
+        <label class="chip"><input type="checkbox" data-col="roe">ROE%</label>
+        <label class="chip"><input type="checkbox" data-col="intrinsic" checked>Valor Intrínseco</label>
+        <label class="chip"><input type="checkbox" data-col="marginOfSafety" checked>MoS</label>
+      </div>
+      <input type="hidden" name="columns" id="columnsField" th:value="${selectedCols}"/>
+    </details>
   </form>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
+  <!-- Grid -->
+  <section class="card">
+    <div class="table-wrap">
+      <table class="table" id="grid">
+        <thead>
         <tr>
-          <th>Ticker</th>
-          <th>Empresa</th>
-          <th>Preço (R$)</th>
-          <th>EPS (LPA)</th>
-          <th>VPA</th>
-          <th>Graham #</th>
-          <th>Valor Intrínseco</th>
-          <th>Margin of Safety</th>
+          <th class="sticky-col">Ticker</th>
+          <th class="sticky-col name">Empresa</th>
+          <th data-col="price">Preço</th>
+          <th data-col="eps">EPS</th>
+          <th data-col="bvps">VPA</th>
+          <th data-col="pe">P/L</th>
+          <th data-col="pb">P/VP</th>
+          <th data-col="marketCap">Market Cap</th>
+          <th data-col="sharesOutstanding">Ações</th>
+          <th data-col="totalDebt">Dívida</th>
+          <th data-col="cash">Caixa</th>
+          <th data-col="ebitda">EBITDA</th>
+          <th data-col="equity">Patrimônio</th>
+          <th data-col="netIncome">Lucro</th>
+          <th data-col="revenue">Receita</th>
+          <th data-col="ev">EV</th>
+          <th data-col="evEbitda">EV/EBITDA</th>
+          <th data-col="netMargin">Marg. Líq.%</th>
+          <th data-col="roe">ROE%</th>
+          <th data-col="intrinsic">Valor Intrínseco</th>
+          <th data-col="marginOfSafety">MoS</th>
         </tr>
-      </thead>
-      <tbody>
+        </thead>
+        <tbody>
         <tr th:each="s: ${stocks}">
-          <td><strong th:text="${s.ticker}"></strong></td>
-          <td th:text="${s.name}"></td>
-          <td th:text="${#numbers.formatDecimal(s.price, 1, 2)}"></td>
-          <td th:text="${#numbers.formatDecimal(s.eps, 1, 2)}"></td>
-          <td th:text="${#numbers.formatDecimal(s.bvps, 1, 2)}"></td>
-          <td th:text="${#numbers.formatDecimal(s.grahamNumber, 1, 2)}"></td>
-          <td th:text="${#numbers.formatDecimal(s.intrinsic, 1, 2)}"></td>
-          <td><span class="badge" th:text="${#numbers.formatPercent(s.marginOfSafety, 1, 2)}"></span></td>
+          <td class="sticky-col"><span class="ticker" th:text="${s.ticker}"></span></td>
+          <td class="sticky-col name" th:text="${s.name}"></td>
+          <td data-col="price" th:text="${#numbers.formatDecimal(s.price,1,2)}"></td>
+          <td data-col="eps" th:text="${s.eps}"></td>
+          <td data-col="bvps" th:text="${s.bvps}"></td>
+          <td data-col="pe" th:text="${s.pe}"></td>
+          <td data-col="pb" th:text="${s.pb}"></td>
+          <td data-col="marketCap" th:text="${s.marketCap}"></td>
+          <td data-col="sharesOutstanding" th:text="${s.sharesOutstanding}"></td>
+          <td data-col="totalDebt" th:text="${s.totalDebt}"></td>
+          <td data-col="cash" th:text="${s.cash}"></td>
+          <td data-col="ebitda" th:text="${s.ebitda}"></td>
+          <td data-col="equity" th:text="${s.equity}"></td>
+          <td data-col="netIncome" th:text="${s.netIncome}"></td>
+          <td data-col="revenue" th:text="${s.revenue}"></td>
+          <td data-col="ev" th:text="${s.ev}"></td>
+          <td data-col="evEbitda" th:text="${s.evEbitda}"></td>
+          <td data-col="netMargin" th:text="${s.netMargin}"></td>
+          <td data-col="roe" th:text="${s.roe}"></td>
+          <td data-col="intrinsic" th:text="${s.intrinsic}"></td>
+          <td data-col="marginOfSafety">
+            <span class="badge"
+                  th:classappend="${s.marginOfSafety != null and s.marginOfSafety >= 0} ? ' badge-pos' : ' badge-neg'"
+                  th:text="${s.marginOfSafety != null ? #numbers.formatPercent(s.marginOfSafety,1,2) : 'N/A'}"></span>
+          </td>
         </tr>
-      </tbody>
-    </table>
-    <p class="hint">* Heurística de Graham Number. Use para triagem inicial — não é recomendação.</p>
-  </div>
+        </tbody>
+      </table>
+    </div>
+    <p class="hint">Dica: use o painel de colunas para focar só no que importa pra sua análise.</p>
+  </section>
 </main>
 
-<footer>
-  <p>Spring Boot + Thymeleaf + brapi.dev</p>
+<footer class="container app-footer">
+  <p>Feito com Spring Boot + Thymeleaf • Dados brapi.dev</p>
 </footer>
 </body>
 </html>
