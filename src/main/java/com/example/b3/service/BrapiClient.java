@@ -44,7 +44,7 @@ public class BrapiClient {
   @Cacheable(cacheNames = "tickers_top", unless = "#result == null")
   public List<QuoteListItem> listTopByMarketCap() {
     //log.info("start listTopByMarketCap");
-    String url = baseUrl + "/quote/list?type=stock&sortBy=market_cap_basic&sortOrder=desc&limit=" + 300 + "&page=1";
+    String url = baseUrl + "/quote/list?type=stock&sortBy=market_cap_basic&sortOrder=desc&limit=" + 200 + "&page=1";
     var resp = withAuth(http.get().uri(url)).retrieve().body(QuoteListResponse.class);
     if (resp == null || resp.stocks() == null) return List.of();
     List<QuoteListItem> out = new ArrayList<>();

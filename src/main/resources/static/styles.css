@@ -131,7 +131,6 @@ html,body{
 }
 
 .sticky-col{position:sticky; left:0; background:#fff; z-index:3; border-right:1px solid var(--line)}
-.sticky-col.name{left:120px}
 
 .ticker{
   font-weight:800; letter-spacing:.4px;
@@ -203,18 +202,4 @@ thead th.is-visible{
 }
 .col-flash {
   animation: colFlash 900ms ease-out;
-}
-
-
-/* Apenas aplica sticky no desktop */
-@media (min-width: 768px) {
-  th.sticky-col, td.sticky-col {
-    position: sticky;
-    left: 0;
-    background: #fff;
-    z-index: 3;
-  }
-  th.sticky-col.name, td.sticky-col.name {
-    left: 120px; /* ou sua var --sticky1 */
-  }
 }

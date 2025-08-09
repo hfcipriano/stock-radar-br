@@ -16,7 +16,7 @@
     <div class="logo">SR</div>
     <div class="titles">
       <h1>Stock Radar BR</h1>
-      <p>Triagem dinâmica de ações da B3 com cálculo de valor intrínseco, sobre as 300 empresas com maior market cap</p>
+      <p>Triagem dinâmica de ações da B3 com cálculo de valor intrínseco, sobre as 200 empresas com maior market cap</p>
     </div>
   </div>
 </header>
@@ -95,7 +95,7 @@
         <thead>
         <tr>
           <th class="sticky-col">Ticker</th>
-          <th data-col="name">Empresa</th>
+          <th class="sticky-col name">Empresa</th>
           <th data-col="price">Preço</th>
           <th data-col="eps">EPS</th>
           <th data-col="bvps">VPA</th>
@@ -120,7 +120,7 @@
         <tbody>
         <tr th:each="s: ${stocks}">
           <td class="sticky-col"><span class="ticker" th:text="${s.ticker}"></span></td>
-          <td data-col="name" th:text="${s.name}"></td>
+          <td th:text="${s.name}"></td>
           <td data-col="price" data-money th:attr="data-val=${s.price}" th:text="${s.price}"></td>
           <td data-col="eps" th:text="${#numbers.formatDecimal(s.eps,1,2)}"></td>
           <td data-col="bvps" th:text="${#numbers.formatDecimal(s.bvps,1,2)}"></td>
